@@ -21,6 +21,10 @@ Status::Status(Code code, folly::StringPiece msg) {
 
 std::string Status::message() const {
     if (state_ == nullptr) return "";
+    Code code = this->code();
+    if (code != kOk && size() == 0) {
+        return toString(code);
+    }
     return std::string(&state_[kHeaderSize], size());
 }
 

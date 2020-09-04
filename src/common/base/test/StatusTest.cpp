@@ -122,6 +122,9 @@ TEST(Status, Message) {
         msg = Status::Error("reason").message();
     }
     EXPECT_EQ(msg, "reason");
-}
 
+    // empty msg
+    auto err2 = Status::SpaceNotFound();
+    EXPECT_EQ(err2.message(), "SpaceNotFound: ");
+}
 }   // namespace nebula
