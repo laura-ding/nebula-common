@@ -38,6 +38,7 @@
 #include "common/expression/ListComprehensionExpression.h"
 #include "common/expression/PredicateExpression.h"
 #include "common/expression/ReduceExpression.h"
+#include "common/expression/VidExpression.h"
 #include "common/expression/test/ExpressionContextMock.h"
 
 nebula::ExpressionContextMock gExpCtxt;
@@ -4198,6 +4199,9 @@ TEST_F(ExpressionTest, TestExprClone) {
                                                           new LabelExpression(new std::string("n")),
                                                           new ConstantExpression(2))));
     ASSERT_EQ(reduceExpr, *reduceExpr.clone());
+
+    VidExpression vidExpr;
+    ASSERT_EQ(vidExpr, *vidExpr.clone());
 }
 
 TEST_F(ExpressionTest, PathBuild) {

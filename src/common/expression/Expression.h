@@ -105,8 +105,8 @@ public:
         kIsNotNull,
         kIsEmpty,
         kIsNotEmpty,
-
         kSubscriptRange,
+        kVidExpr,
     };
 
 
