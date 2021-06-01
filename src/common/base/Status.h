@@ -8,6 +8,7 @@
 #define COMMON_BASE_STATUS_H_
 
 #include "common/base/Base.h"
+#include "common/errorcode/ErrorCode.h"
 
 /**
  * Status is modeled on the one from levelDB, beyond that,
@@ -29,14 +30,16 @@ public:
     ~Status() = default;
 
     Status(const Status &rhs) {
-        state_ = rhs.state_ == nullptr ? nullptr : copyState(rhs.state_.get());
+        CHECK(rhs.state_);
+        state_ = copyState(rhs.state_.get());
     }
 
     Status& operator=(const Status &rhs) {
         // `state_ == rhs.state_' means either `this == &rhs',
         // or both `*this' and `rhs' are OK
         if (state_ != rhs.state_) {
-            state_ = rhs.state_ == nullptr ? nullptr : copyState(rhs.state_.get());
+            CHECK(rhs.state_);
+            state_ = copyState(rhs.state_.get());
         }
         return *this;
     }
@@ -69,12 +72,7 @@ public:
     }
 
     bool operator==(const Status &rhs) const {
-        // `state_ == rhs.state_' means either `this == &rhs',
-        // or both `*this' and `rhs' are OK
-        if (state_ == rhs.state_) {
-            return true;
-        }
-        return code() == rhs.code();
+        return code() == rhs.code() && state_ == rhs.state_;
     }
 
     bool operator!=(const Status &rhs) const {
@@ -86,67 +84,18 @@ public:
     }
 
     static Status OK() {
-        return Status();
+        return rhs.code();
     }
 
-#define STATUS_GENERATOR(ERROR)                         \
-    static Status ERROR() {                             \
-        return Status(k##ERROR, "");                    \
-    }                                                   \
-                                                        \
-    static Status ERROR(folly::StringPiece msg) {       \
-        return Status(k##ERROR, msg);                   \
-    }                                                   \
-                                                        \
-    static Status ERROR(const char *fmt, ...)           \
-        __attribute__((format(printf, 1, 2))) {         \
-        va_list args;                                   \
-        va_start(args, fmt);                            \
-        auto msg = format(fmt, args);                   \
-        va_end(args);                                   \
-        return Status(k##ERROR, msg);                   \
-    }                                                   \
-                                                        \
-    bool is##ERROR() const {                            \
-        return code() == k##ERROR;                      \
+    static Status ERROR(ErrorCode errorCode, const char *fmt, ...)
+        __attribute__((format(printf, 1, 2))) {
+        va_list args;
+        va_start(args, fmt);
+        auto msg = format(fmt, args);
+        va_end(args);
+        return Status(k##ERROR, msg);
     }
-    // Some succeeded codes
-    STATUS_GENERATOR(Inserted);
 
-    // General errors
-    STATUS_GENERATOR(Error);
-    STATUS_GENERATOR(NoSuchFile);
-    STATUS_GENERATOR(NotSupported);
-
-    // Graph engine errors
-    STATUS_GENERATOR(SyntaxError);
-    STATUS_GENERATOR(SemanticError);
-    // Nothing is executed When command is comment
-    STATUS_GENERATOR(StatementEmpty);
-
-    // Storage engine errors
-    STATUS_GENERATOR(KeyNotFound);
-    STATUS_GENERATOR(PartialSuccess);
-
-    // Meta engine errors
-    // TODO(dangleptr) we could use ErrorOr to replace SpaceNotFound here.
-    STATUS_GENERATOR(SpaceNotFound);
-    STATUS_GENERATOR(HostNotFound);
-    STATUS_GENERATOR(TagNotFound);
-    STATUS_GENERATOR(EdgeNotFound);
-    STATUS_GENERATOR(UserNotFound);
-    STATUS_GENERATOR(IndexNotFound);
-    STATUS_GENERATOR(GroupNotFound);
-    STATUS_GENERATOR(ZoneNotFound);
-    STATUS_GENERATOR(LeaderChanged);
-    STATUS_GENERATOR(Balanced);
-    STATUS_GENERATOR(PartNotFound);
-    STATUS_GENERATOR(ListenerNotFound);
-
-    // User or permission errors
-    STATUS_GENERATOR(PermissionError);
-
-#undef STATUS_GENERATOR
 
     std::string toString() const;
 
@@ -187,10 +136,7 @@ public:
         kPermissionError        = 501,
     };
 
-    Code code() const {
-        if (state_ == nullptr) {
-            return kOk;
-        }
+    ErrorCode errorCode() const {
         return reinterpret_cast<const Header*>(state_.get())->code_;
     }
 
@@ -213,14 +159,13 @@ private:
 private:
     struct Header {
         uint16_t                    size_;
-        Code                        code_;
+        ErrorCode                   errorCode_;
     };
     static constexpr auto kHeaderSize = sizeof(Header);
-    // state_ == nullptr indicates OK
-    // otherwise, the buffer layout is:
+    // the buffer layout is:
     // state_[0..1]                 length of the error msg, i.e. size() - kHeaderSize
-    // state_[2..3]                 code
-    // state_[4...]                 verbose error message
+    // state_[2..5]                 errorCode
+    // state_[6...]                 verbose error message
     std::unique_ptr<const char[]>   state_;
 };
 

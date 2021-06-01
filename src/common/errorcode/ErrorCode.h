@@ -37,6 +37,8 @@
 
 
 enum class ErrorCode : int32_t {
+    SUCCEEDED = 0,
+
     // The ErrorCode for graph
     // prefix: 1001
     E_GRAPH_SCHEMA_TAG_NOT_FOUND = 10070001,
