@@ -72,7 +72,7 @@ public:
     }
 
     bool operator==(const Status &rhs) const {
-        return code() == rhs.code() && state_ == rhs.state_;
+        return errorCode() == rhs.errorCode() && state_ == rhs.state_;
     }
 
     bool operator!=(const Status &rhs) const {
@@ -80,11 +80,11 @@ public:
     }
 
     bool ok() const {
-        return state_ == nullptr;
+        return errorCode() == ErrorCode::SUCCEEDED;
     }
 
     static Status OK() {
-        return rhs.code();
+        return Status::ERROR(ErrorCode::SUCCEEDED);
     }
 
     static Status ERROR(ErrorCode errorCode, const char *fmt, ...)
@@ -93,7 +93,7 @@ public:
         va_start(args, fmt);
         auto msg = format(fmt, args);
         va_end(args);
-        return Status(k##ERROR, msg);
+        return Status(code, msg);
     }
 
 
@@ -101,45 +101,11 @@ public:
 
     friend std::ostream& operator<<(std::ostream &os, const Status &status);
 
-    // If some kind of error really needs to be distinguished with others using a specific
-    // code, other than a general code and specific msg, you could add a new code below,
-    // e.g. kSomeError, and add the cooresponding STATUS_GENERATOR(SomeError)
-    enum Code : uint16_t {
-        // OK
-        kOk                     = 0,
-        kInserted               = 1,
-        // 1xx, for general errors
-        kError                  = 101,
-        kNoSuchFile             = 102,
-        kNotSupported           = 103,
-        // 2xx, for graph engine errors
-        kSyntaxError            = 201,
-        kStatementEmpty         = 202,
-        kSemanticError          = 203,
-        // 3xx, for storage engine errors
-        kKeyNotFound            = 301,
-        kPartialSuccess         = 302,
-        // 4xx, for meta service errors
-        kSpaceNotFound          = 404,
-        kHostNotFound           = 405,
-        kTagNotFound            = 406,
-        kEdgeNotFound           = 407,
-        kUserNotFound           = 408,
-        kLeaderChanged          = 409,
-        kBalanced               = 410,
-        kIndexNotFound          = 411,
-        kPartNotFound           = 412,
-        kGroupNotFound          = 413,
-        kZoneNotFound           = 414,
-        kListenerNotFound       = 415,
-        // 5xx for user or permission error
-        kPermissionError        = 501,
-    };
-
     ErrorCode errorCode() const {
         return reinterpret_cast<const Header*>(state_.get())->code_;
     }
 
+    // Gets the error message corresponding to the error code
     std::string message() const;
 
 private:
@@ -148,13 +114,11 @@ private:
         return reinterpret_cast<const Header*>(state_.get())->size_;
     }
 
-    Status(Code code, folly::StringPiece msg);
+    Status(ErrorCode code, folly::StringPiece msg);
 
     static std::unique_ptr<const char[]> copyState(const char *state);
 
     static std::string format(const char *fmt, va_list args);
-
-    static const char *toString(Code code);
 
 private:
     struct Header {

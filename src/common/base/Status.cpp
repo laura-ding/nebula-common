@@ -24,11 +24,12 @@ std::string Status::message() const {
 }
 
 std::string Status::toString() const {
-    Code code = this->code();
     if (this->code() == SUCCEEDED) {
-        return "OK";
+        return "SUCCEEDED";
     }
     std::string result(toString(code));
+    result.append(this->code());
+    result.append(':');
     result.append(&state_[kHeaderSize], size());
     return result;
 }
@@ -46,11 +47,6 @@ std::string Status::format(const char *fmt, va_list args) {
     char result[256];
     vsnprintf(result, sizeof(result), fmt, args);
     return result;
-}
-
-// static
-const char *Status::toString(Code code) {
-    return "";
 }
 
 }   // namespace nebula

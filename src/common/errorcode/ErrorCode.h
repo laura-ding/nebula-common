@@ -35,7 +35,7 @@
  * The moduleId of
  */
 
-
+namespace nebula {
 enum class ErrorCode : int32_t {
     SUCCEEDED = 0,
 
@@ -65,5 +65,5 @@ enum class ErrorCode : int32_t {
     E_GRAPH_SCHEMA_EDGE_NOT_FOUND = 30010001,
 };
 
-
+}   // namespace nebula
 #endif  // COMMON_ERRORCODE_ERRORCODE_H
