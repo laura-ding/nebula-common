@@ -227,6 +227,15 @@ ErrorMsgUTF8Map = {
         }
     },
     {
+        ErrorCode::E_INVALID_VID_TYPE,
+        {
+            {
+                Language::L_EN,
+                "Only support integer/string type vid, but now type is `%s'."
+            }
+        }
+    },
+    {
         ErrorCode::E_GRAPH_SCHEMA_TAG_ID_NOT_FOUND,
         {
             {

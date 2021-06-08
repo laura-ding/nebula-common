@@ -367,7 +367,7 @@ StorageClientBase<ClientType>::clusterIdsToHosts(GraphSpaceID spaceId,
 
     auto status = metaClient_->partsNum(spaceId);
     if (!status.ok()) {
-        return Status::Error("Space not found, spaceid: %d", spaceId);
+        return status.status();
     }
     auto numParts = status.value();
     std::unordered_map<PartitionID, HostAddr> leaders;
@@ -399,7 +399,7 @@ StorageClientBase<ClientType>::getHostParts(GraphSpaceID spaceId) const {
     std::unordered_map<HostAddr, std::vector<PartitionID>> hostParts;
     auto status = metaClient_->partsNum(spaceId);
     if (!status.ok()) {
-        return Status::Error("Space not found, spaceid: %d", spaceId);
+        return status.status();
     }
 
     auto parts = status.value();

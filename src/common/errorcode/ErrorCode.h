@@ -69,9 +69,15 @@ enum class ErrorCode : int32_t {
     E_FUNCTION_ARITY_NOT_MATCH = 13,
     E_FUNCTION_INVALID_ARG_TYPE = 14,
 
+    // Agg Function error
+    E_AGG_FUNCTION_NOT_SUPPORTED = 11,
+    E_AGG_FUNCTION_DYNAMIC_NOT_SUPPORTED = 12,
+
     E_KV_ARGUMENTS_INVALID = 30,
 
     E_SPACE_INVALID_VID_LEN = 31,
+
+    E_INVALID_VID_TYPE = 32,
 
 
     // The ErrorCode for graph
