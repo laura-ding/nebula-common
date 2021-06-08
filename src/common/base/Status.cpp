@@ -9,12 +9,12 @@
 
 namespace nebula {
 
-Status::Status(ErrorCode code, folly::StringPiece msg) {
+Status::Status(ErrorCode errorCode, folly::StringPiece msg) {
     const uint16_t size = msg.size();
     auto state = std::unique_ptr<char[]>(new char[size + kHeaderSize]);
     auto *header = reinterpret_cast<Header*>(state.get());
     header->size_ = size;
-    header->code_ = ErrorCode;
+    header->errorCode_ = errorCode;
     ::memcpy(&state[kHeaderSize], msg.data(), size);
     state_ = std::move(state);
 }
@@ -24,12 +24,13 @@ std::string Status::message() const {
 }
 
 std::string Status::toString() const {
-    if (this->code() == SUCCEEDED) {
+    if (this->errorCode() == ErrorCode::SUCCEEDED) {
         return "SUCCEEDED";
     }
-    std::string result(toString(code));
-    result.append(this->code());
-    result.append(':');
+    std::string result;
+    result.reserve(size());
+    result.append(this->errorCode());
+    result.append(":");
     result.append(&state_[kHeaderSize], size());
     return result;
 }

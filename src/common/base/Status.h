@@ -9,6 +9,7 @@
 
 #include "common/base/Base.h"
 #include "common/errorcode/ErrorCode.h"
+#include "common/errorcode/ErrorMsg.h"
 
 /**
  * Status is modeled on the one from levelDB, beyond that,
@@ -84,16 +85,31 @@ public:
     }
 
     static Status OK() {
-        return Status::ERROR(ErrorCode::SUCCEEDED);
+        return Status::Error(ErrorCode::SUCCEEDED, "");
     }
 
-    static Status ERROR(ErrorCode errorCode, const char *fmt, ...)
-        __attribute__((format(printf, 1, 2))) {
+    static Status Error(ErrorCode errorCode, ...) {
+        // __attribute__((format(printf, 1, 2))) {
+        const char* fmt = "hello world %s";
+#if 0
+        auto findCode = ErrorMsgUTF8Map.find(errorCode);
+        if (findCode == ErrorMsgUTF8Map.end()) {
+            fmt = "Unknown errorCode.";
+            return Status(errorCode, fmt);
+        } else {
+            auto findMsg = findCode->second.find(Language::L_EN);
+            if (findMsg == findCode->second.end()) {
+                fmt = "Use the unknown language type.";
+                return Status(errorCode, fmt);
+            }
+            fmt = findMsg->second;
+        }
+#endif
         va_list args;
         va_start(args, fmt);
         auto msg = format(fmt, args);
         va_end(args);
-        return Status(code, msg);
+        return Status(errorCode, msg);
     }
 
 
@@ -102,7 +118,7 @@ public:
     friend std::ostream& operator<<(std::ostream &os, const Status &status);
 
     ErrorCode errorCode() const {
-        return reinterpret_cast<const Header*>(state_.get())->code_;
+        return reinterpret_cast<const Header*>(state_.get())->errorCode_;
     }
 
     // Gets the error message corresponding to the error code
@@ -114,7 +130,7 @@ private:
         return reinterpret_cast<const Header*>(state_.get())->size_;
     }
 
-    Status(ErrorCode code, folly::StringPiece msg);
+    Status(ErrorCode errorCode, folly::StringPiece msg);
 
     static std::unique_ptr<const char[]> copyState(const char *state);
 
