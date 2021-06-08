@@ -25,7 +25,7 @@ MemInfo::MemInfo() noexcept {
 Status MemInfo::init() {
     if (sysinfo(info_.get()) == -1) {
         auto err = errno;
-        return Status::Error("Fail to call sysinfo to get memory info, errno: %d", err);
+        return Status::Error(ErrorCode::E_INIT_MEM_FAILED, err);
     }
     return Status::OK();
 }

@@ -20,6 +20,9 @@ Status::Status(ErrorCode errorCode, folly::StringPiece msg) {
 }
 
 std::string Status::message() const {
+    if (state_ == nullptr) {
+        return "";
+    }
     return std::string(&state_[kHeaderSize], size());
 }
 
@@ -29,7 +32,7 @@ std::string Status::toString() const {
     }
     std::string result;
     result.reserve(size());
-    result.append(this->errorCode());
+    result.append(std::to_string(static_cast<int32_t>(this->errorCode())));
     result.append(":");
     result.append(&state_[kHeaderSize], size());
     return result;

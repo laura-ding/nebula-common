@@ -90,9 +90,8 @@ public:
 
     static Status Error(ErrorCode errorCode, ...) {
         // __attribute__((format(printf, 1, 2))) {
-        const char* fmt = "hello world %s";
-#if 0
         auto findCode = ErrorMsgUTF8Map.find(errorCode);
+        std::string fmt;
         if (findCode == ErrorMsgUTF8Map.end()) {
             fmt = "Unknown errorCode.";
             return Status(errorCode, fmt);
@@ -104,20 +103,25 @@ public:
             }
             fmt = findMsg->second;
         }
-#endif
         va_list args;
-        va_start(args, fmt);
-        auto msg = format(fmt, args);
-        va_end(args);
+        // va_start(args, fmt);
+        auto msg = format(fmt.c_str(), args);
+        // va_end(args);
         return Status(errorCode, msg);
     }
 
+    static Status ErrorMsg(ErrorCode errorCode, const std::string &errorMsg) {
+        return Status(errorCode, errorMsg);
+    }
 
     std::string toString() const;
 
     friend std::ostream& operator<<(std::ostream &os, const Status &status);
 
     ErrorCode errorCode() const {
+        if (state_ == nullptr) {
+            return ErrorCode::SUCCEEDED;
+        }
         return reinterpret_cast<const Header*>(state_.get())->errorCode_;
     }
 

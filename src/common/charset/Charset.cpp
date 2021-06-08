@@ -10,7 +10,7 @@ namespace nebula {
 
 Status CharsetInfo::isSupportCharset(const std::string& charsetName) {
     if (supportCharsets_.find(charsetName) == supportCharsets_.end()) {
-        return Status::Error("Charset `%s' not support", charsetName.c_str());
+        return Status::Error(ErrorCode::E_CHARSET_NOT_SUPPORTED, charsetName.c_str());
     }
     return Status::OK();
 }
@@ -18,7 +18,7 @@ Status CharsetInfo::isSupportCharset(const std::string& charsetName) {
 
 Status CharsetInfo::isSupportCollate(const std::string& collateName) {
     if (supportCollations_.find(collateName) == supportCollations_.end()) {
-        return Status::Error("Collation `%s' not support", collateName.c_str());
+        return Status::Error(ErrorCode::E_COLLATION_NOT_SUPPORTED, collateName.c_str());
     }
     return Status::OK();
 }
@@ -34,7 +34,7 @@ Status CharsetInfo::charsetAndCollateMatch(const std::string& charsetName,
             }
         }
     }
-    return  Status::Error("Charset `%s' and Collation `%s' not match",
+    return  Status::Error(ErrorCode::E_CHARSET_AND_COLLATION_NOT_MATCH,
                           charsetName.c_str(), collateName.c_str());
 }
 
@@ -44,7 +44,7 @@ StatusOr<std::string> CharsetInfo::getDefaultCollationbyCharset(const std::strin
     if (iter != charsetDesc_.end()) {
         return iter->second.defaultColl_;
     }
-    return Status::Error("Charset `%s' not support", charsetName.c_str());
+    return Status::Error(ErrorCode::E_CHARSET_NOT_SUPPORTED, charsetName.c_str());
 }
 
 
@@ -56,7 +56,7 @@ StatusOr<std::string> CharsetInfo::getCharsetbyCollation(const std::string& coll
             }
         }
     }
-    return Status::Error("Collation `%s' not support", collationName.c_str());
+    return Status::Error(ErrorCode::E_COLLATION_NOT_SUPPORTED, collationName.c_str());
 }
 
 }   // namespace nebula

@@ -604,8 +604,6 @@ public:
     folly::Future<StatusOr<std::vector<cpp2::Group>>>
     listGroups();
 
-    Status refreshCache();
-
     StatusOr<LeaderInfo> loadLeader();
 
     folly::Future<StatusOr<cpp2::StatisItem>>
@@ -709,6 +707,14 @@ protected:
 
     ListenersMap doGetListenersMap(const HostAddr& host, const LocalCache& localCache);
 
+private:
+    Status getSpaceIdNotFoundStatus(GraphSpaceID spaceId) {
+        if (options_.role_ == cpp2::HostRole::STORAGE) {
+            return Status::Error(ErrorCode::E_STORAGE_SPACE_NOT_FOUND, spaceId);
+        } else {
+            return Status::Error(ErrorCode::E_GRAPH_SPACE_NOT_FOUND, spaceId);
+        }
+    }
 private:
     std::shared_ptr<folly::IOThreadPoolExecutor> ioThreadPool_;
     std::shared_ptr<thrift::ThriftClientManager<cpp2::MetaServiceAsyncClient>> clientsMan_;
