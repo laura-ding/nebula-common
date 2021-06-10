@@ -4,6 +4,7 @@
  * attached with Common Clause Condition 1.0, found in the LICENSES directory.
  */
 
+#include <thrift/lib/cpp/util/EnumUtils.h>
 #include "common/base/Base.h"
 #include "common/base/MurmurHash2.h"
 #include "common/http/HttpClient.h"
@@ -61,7 +62,7 @@ MetaClient::~MetaClient() {
 
 bool MetaClient::isMetadReady() {
     auto ret = heartbeat().get();
-    if (!ret.ok() && ret.status() != Status::LeaderChanged()) {
+    if (!ret.ok() && ret.status().errorCode() != ErrorCode::E_LEADER_CHANGED) {
         LOG(ERROR) << "Heartbeat failed, status:" << ret.status();
         ready_ = false;
         return ready_;
@@ -516,10 +517,14 @@ Status MetaClient::checkTagIndexed(GraphSpaceID space, IndexID indexID) {
         if (indexIt != it->second->tagIndexes_.end()) {
             return Status::OK();
         } else {
-            return Status::IndexNotFound();
+            if (options_.role_ == cpp2::HostRole::STORAGE) {
+                return Status::Error(ErrorCode::E_STORAGE_INDEX_TAG_INDEX_ID_NOT_FOUND, indexID);
+            } else {
+                return Status::Error(ErrorCode::E_GRAPH_INDEX_TAG_INDEX_ID_NOT_FOUND, indexID);
+            }
         }
     }
-    return Status::SpaceNotFound();
+    return getSpaceIdNotFoundStatus(space);
 }
 
 
@@ -531,10 +536,14 @@ Status MetaClient::checkEdgeIndexed(GraphSpaceID space, IndexID indexID) {
         if (indexIt != it->second->edgeIndexes_.end()) {
             return Status::OK();
         } else {
-            return Status::IndexNotFound();
+            if (options_.role_ == cpp2::HostRole::STORAGE) {
+                return Status::Error(ErrorCode::E_STORAGE_INDEX_EDGE_INDEX_ID_NOT_FOUND, indexID);
+            } else {
+                return Status::Error(ErrorCode::E_GRAPH_INDEX_EDGE_INDEX_ID_NOT_FOUND, indexID);
+            }
         }
     }
-    return Status::SpaceNotFound();
+    return getSpaceIdNotFoundStatus(space);
 }
 
 
@@ -625,12 +634,12 @@ void MetaClient::getResponse(Request req,
             }
 
             auto&& resp = t.value();
-            if (resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED) {
+            if (resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED)) {
                 // succeeded
                 pro.setValue(respGen(std::move(resp)));
                 return;
-            } else if (resp.get_code() == nebula::cpp2::ErrorCode::E_LEADER_CHANGED) {
-                updateLeader(resp.get_leader());
+            } else if (resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::E_LEADER_CHANGED)) {
+                updateLeader(resp.get_status().get_leader());
                 if (retry < retryLimit) {
                     evb->runAfterDelay([req = std::move(req),
                                         remoteFunc = std::move(remoteFunc),
@@ -670,7 +679,8 @@ MetaClient::toSpaceIdName(const std::vector<cpp2::IdName>& tIdNames) {
 
 template<typename RESP>
 Status MetaClient::handleResponse(const RESP& resp) {
-    return Status::ErrorMsg(resp.get_code(), resp.get_error_msg());
+    return Status::ErrorMsg(static_cast<nebula::ErrorCode>(resp.get_status().get_code()),
+                            resp.get_status().get_error_msg());
 }
 
 
@@ -985,7 +995,7 @@ folly::Future<StatusOr<bool>> MetaClient::dropSpace(std::string name,
                     return client->future_dropSpace(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -1061,7 +1071,11 @@ MetaClient::getSpaceIdByNameFromCache(const std::string& name) {
     if (it != spaceIndexByName_.end()) {
         return it->second;
     }
-    return Status::SpaceNotFound();
+    if (options_.role_ == cpp2::HostRole::STORAGE) {
+        return Status::Error(ErrorCode::E_STORAGE_SPACE_NAME_NOT_FOUND, name);
+    } else {
+        return Status::Error(ErrorCode::E_GRAPH_SPACE_NAME_NOT_FOUND, name);
+    }
 }
 
 StatusOr<std::string> MetaClient::getSpaceNameByIdFromCache(GraphSpaceID spaceId) {
@@ -1086,9 +1100,9 @@ StatusOr<TagID> MetaClient::getTagIDByNameFromCache(const GraphSpaceID& space,
     auto it = spaceTagIndexByName_.find(std::make_pair(space, name));
     if (it == spaceTagIndexByName_.end()) {
         if (options_.role_ == cpp2::HostRole::STORAGE) {
-            return Status::Error(ErrorCode::E_STORAGE_TAG_NAME_NOT_FOUND, name);
+            return Status::Error(ErrorCode::E_STORAGE_SCHEMA_TAG_NAME_NOT_FOUND, name);
         } else {
-            return Status::Error(ErrorCode::E_GRAPH_TAG_NAME_NOT_FOUND, name);
+            return Status::Error(ErrorCode::E_GRAPH_SCHEMA_TAG_NAME_NOT_FOUND, name);
         }
     }
     return it->second;
@@ -1104,9 +1118,9 @@ StatusOr<std::string> MetaClient::getTagNameByIdFromCache(const GraphSpaceID& sp
     auto it = spaceTagIndexById_.find(std::make_pair(space, tagId));
     if (it == spaceTagIndexById_.end()) {
         if (options_.role_ == cpp2::HostRole::STORAGE) {
-            return Status::Error(ErrorCode::E_STORAGE_TAG_ID_NOT_FOUND, tagId);
+            return Status::Error(ErrorCode::E_STORAGE_SCHEMA_TAG_ID_NOT_FOUND, tagId);
         } else {
-            return Status::Error(ErrorCode::E_GRAPH_TAG_ID_NOT_FOUND, tagId);
+            return Status::Error(ErrorCode::E_GRAPH_SCHEMA_TAG_ID_NOT_FOUND, tagId);
         }
     }
     return it->second;
@@ -1122,9 +1136,9 @@ StatusOr<EdgeType> MetaClient::getEdgeTypeByNameFromCache(const GraphSpaceID& sp
     auto it = spaceEdgeIndexByName_.find(std::make_pair(space, name));
     if (it == spaceEdgeIndexByName_.end()) {
         if (options_.role_ == cpp2::HostRole::STORAGE) {
-            return Status::Error(ErrorCode::E_STORAGE_EDGE_NAME_NOT_FOUND, name);
+            return Status::Error(ErrorCode::E_STORAGE_SCHEMA_EDGE_NAME_NOT_FOUND, name);
         } else {
-            return Status::Error(ErrorCode::E_GRAPH_EDGE_NAME_NOT_FOUND, name);
+            return Status::Error(ErrorCode::E_GRAPH_SCHEMA_EDGE_NAME_NOT_FOUND, name);
         }
     }
     return it->second;
@@ -1140,9 +1154,9 @@ StatusOr<std::string> MetaClient::getEdgeNameByTypeFromCache(const GraphSpaceID&
     auto it = spaceEdgeIndexByType_.find(std::make_pair(space, edgeType));
     if (it == spaceEdgeIndexByType_.end()) {
         if (options_.role_ == cpp2::HostRole::STORAGE) {
-            return Status::Error(ErrorCode::E_STORAGE_EDGE_ID_NOT_FOUND, edgeType);
+            return Status::Error(ErrorCode::E_STORAGE_SCHEMA_EDGE_ID_NOT_FOUND, edgeType);
         } else {
-            return Status::Error(ErrorCode::E_GRAPH_EDGE_ID_NOT_FOUND, edgeType);
+            return Status::Error(ErrorCode::E_GRAPH_SCHEMA_EDGE_ID_NOT_FOUND, edgeType);
         }
     }
     return it->second;
@@ -1167,7 +1181,7 @@ folly::Future<StatusOr<bool>>
 MetaClient::multiPut(std::string segment,
                      std::vector<std::pair<std::string, std::string>> pairs) {
     if (!nebula::meta::checkSegment(segment) || pairs.empty()) {
-        return Status::Error(E_KV_ARGUMENTS_INVALID);
+        return Status::Error(ErrorCode::E_KV_ARGUMENTS_INVALID);
     }
 
     cpp2::MultiPutReq req;
@@ -1184,7 +1198,7 @@ MetaClient::multiPut(std::string segment,
                     return client->future_multiPut(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -1194,7 +1208,7 @@ MetaClient::multiPut(std::string segment,
 folly::Future<StatusOr<std::string>>
 MetaClient::get(std::string segment, std::string key) {
     if (!nebula::meta::checkSegment(segment) || key.empty()) {
-        return Status::Error(E_KV_ARGUMENTS_INVALID);
+        return Status::Error(ErrorCode::E_KV_ARGUMENTS_INVALID);
     }
 
     cpp2::GetReq req;
@@ -1217,7 +1231,7 @@ MetaClient::get(std::string segment, std::string key) {
 folly::Future<StatusOr<std::vector<std::string>>>
 MetaClient::multiGet(std::string segment, std::vector<std::string> keys) {
     if (!nebula::meta::checkSegment(segment) || keys.empty()) {
-        return Status::Error(E_KV_ARGUMENTS_INVALID);
+        return Status::Error(ErrorCode::E_KV_ARGUMENTS_INVALID);
     }
 
     cpp2::MultiGetReq req;
@@ -1240,7 +1254,7 @@ MetaClient::multiGet(std::string segment, std::vector<std::string> keys) {
 folly::Future<StatusOr<std::vector<std::string>>>
 MetaClient::scan(std::string segment, std::string start, std::string end) {
     if (!nebula::meta::checkSegment(segment) || start.empty() || end.empty()) {
-        return Status::Error(E_KV_ARGUMENTS_INVALID);
+        return Status::Error(ErrorCode::E_KV_ARGUMENTS_INVALID);
     }
 
     cpp2::ScanReq req;
@@ -1264,7 +1278,7 @@ MetaClient::scan(std::string segment, std::string start, std::string end) {
 folly::Future<StatusOr<bool>>
 MetaClient::remove(std::string segment, std::string key) {
     if (!nebula::meta::checkSegment(segment) || key.empty()) {
-        return Status::Error(E_KV_ARGUMENTS_INVALID);
+        return Status::Error(ErrorCode::E_KV_ARGUMENTS_INVALID);
     }
 
     cpp2::RemoveReq req;
@@ -1277,7 +1291,7 @@ MetaClient::remove(std::string segment, std::string key) {
                     return client->future_remove(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -1287,7 +1301,7 @@ MetaClient::remove(std::string segment, std::string key) {
 folly::Future<StatusOr<bool>>
 MetaClient::removeRange(std::string segment, std::string start, std::string end) {
     if (!nebula::meta::checkSegment(segment) || start.empty() || end.empty()) {
-        return Status::Error(E_KV_ARGUMENTS_INVALID);
+        return Status::Error(ErrorCode::E_KV_ARGUMENTS_INVALID);
     }
 
     cpp2::RemoveRangeReq req;
@@ -1301,7 +1315,7 @@ MetaClient::removeRange(std::string segment, std::string start, std::string end)
                     return client->future_removeRange(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -1350,15 +1364,15 @@ Status MetaClient::checkPartExistInCache(const HostAddr& host,
                 }
             }
         } else {
-            return Status::PartNotFound();
+            return Status::Error(ErrorCode::E_STORAGE_PART_ID_NOT_FOUND, spaceId, partId);
         }
     }
-    return Status::SpaceNotFound();
+    return getSpaceIdNotFoundStatus(spaceId);
 }
 
 
 Status MetaClient::checkSpaceExistInCache(const HostAddr& host,
-                                        GraphSpaceID spaceId) {
+                                          GraphSpaceID spaceId) {
     folly::RWSpinLock::ReadHolder holder(localCacheLock_);
     auto it = localCache_.find(spaceId);
     if (it != localCache_.end()) {
@@ -1366,10 +1380,10 @@ Status MetaClient::checkSpaceExistInCache(const HostAddr& host,
         if (partsIt != it->second->partsOnHost_.end() && !partsIt->second.empty()) {
             return Status::OK();
         } else {
-            return Status::PartNotFound();
+            return Status::Error(ErrorCode::E_STORAGE_PART_ID_NOT_FOUND, spaceId, -1);
         }
     }
-    return Status::SpaceNotFound();
+    return getSpaceIdNotFoundStatus(spaceId);
 }
 
 
@@ -1423,7 +1437,7 @@ MetaClient::alterTagSchema(GraphSpaceID spaceId,
                     return client->future_alterTag(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -1461,7 +1475,7 @@ MetaClient::dropTagSchema(GraphSpaceID spaceId, std::string tagName, const bool 
                     return client->future_dropTag(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -1529,7 +1543,7 @@ MetaClient::alterEdgeSchema(GraphSpaceID spaceId,
                     return client->future_alterEdge(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -1587,7 +1601,7 @@ MetaClient::dropEdgeSchema(GraphSpaceID spaceId, std::string name, const bool if
                     return client->future_dropEdge(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -1639,7 +1653,7 @@ MetaClient::dropTagIndex(GraphSpaceID spaceID, std::string name, bool ifExists) 
                     return client->future_dropTagIndex(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -1699,7 +1713,7 @@ MetaClient::rebuildTagIndex(GraphSpaceID spaceID,
                     return client->future_rebuildTagIndex(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -1771,7 +1785,7 @@ MetaClient::dropEdgeIndex(GraphSpaceID spaceId, std::string name, bool ifExists)
                     return client->future_dropEdgeIndex(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -1846,10 +1860,8 @@ StatusOr<cpp2::PropertyType> MetaClient::getSpaceVidType(const GraphSpaceID& spa
     }
     auto vIdType = spaceIt->second->spaceDesc_.get_vid_type().get_type();
     if (vIdType != cpp2::PropertyType::INT64 && vIdType != cpp2::PropertyType::FIXED_STRING) {
-        std::stringstream ss;
-        ss << "Space " << spaceId << ", vertexId type invalid: "
-            << apache::thrift::util::enumNameSafe(vIdType);
-        return Status::Error(ss.str());
+        return Status::Error(ErrorCode::E_INVALID_VID_TYPE,
+                             apache::thrift::util::enumNameSafe(vIdType));
     }
     return vIdType;
 }
@@ -1996,7 +2008,7 @@ MetaClient::rebuildEdgeIndex(GraphSpaceID spaceID,
                     return client->future_rebuildEdgeIndex(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -2029,7 +2041,11 @@ MetaClient::getTagIndexByNameFromCache(const GraphSpaceID space, const std::stri
     std::pair<GraphSpaceID, std::string> key(space, name);
     auto iter = tagNameIndexMap_.find(key);
     if (iter == tagNameIndexMap_.end()) {
-        return Status::IndexNotFound();
+        if (options_.role_ == cpp2::HostRole::STORAGE) {
+            return Status::Error(ErrorCode::E_STORAGE_INDEX_TAG_INDEX_NAME_NOT_FOUND, name);
+        } else {
+            return Status::Error(ErrorCode::E_GRAPH_INDEX_TAG_INDEX_NAME_NOT_FOUND, name);
+        }
     }
     auto indexID = iter->second;
     auto itemStatus = getTagIndexFromCache(space, indexID);
@@ -2048,7 +2064,11 @@ MetaClient::getEdgeIndexByNameFromCache(const GraphSpaceID space, const std::str
     std::pair<GraphSpaceID, std::string> key(space, name);
     auto iter = edgeNameIndexMap_.find(key);
     if (iter == edgeNameIndexMap_.end()) {
-        return Status::IndexNotFound();
+        if (options_.role_ == cpp2::HostRole::STORAGE) {
+            return Status::Error(ErrorCode::E_STORAGE_INDEX_EDGE_INDEX_NAME_NOT_FOUND, name);
+        } else {
+            return Status::Error(ErrorCode::E_GRAPH_INDEX_EDGE_INDEX_NAME_NOT_FOUND, name);
+        }
     }
     auto indexID = iter->second;
     auto itemStatus = getEdgeIndexFromCache(space, indexID);
@@ -2069,12 +2089,16 @@ MetaClient::getTagIndexFromCache(GraphSpaceID spaceId, IndexID indexID) {
     auto spaceIt = localCache_.find(spaceId);
     if (spaceIt == localCache_.end()) {
         VLOG(3) << "Space " << spaceId << " not found!";
-        return Status::SpaceNotFound();
+        return getSpaceIdNotFoundStatus(spaceId);
     } else {
         auto iter = spaceIt->second->tagIndexes_.find(indexID);
         if (iter == spaceIt->second->tagIndexes_.end()) {
             VLOG(3) << "Space " << spaceId << ", Tag Index " << indexID << " not found!";
-            return Status::IndexNotFound();
+            if (options_.role_ == cpp2::HostRole::STORAGE) {
+                return Status::Error(ErrorCode::E_STORAGE_INDEX_TAG_INDEX_ID_NOT_FOUND, indexID);
+            } else {
+                return Status::Error(ErrorCode::E_GRAPH_INDEX_TAG_INDEX_ID_NOT_FOUND, indexID);
+            }
         } else {
             return iter->second;
         }
@@ -2109,12 +2133,16 @@ MetaClient::getEdgeIndexFromCache(GraphSpaceID spaceId, IndexID indexID) {
     auto spaceIt = localCache_.find(spaceId);
     if (spaceIt == localCache_.end()) {
         VLOG(3) << "Space " << spaceId << " not found!";
-        return Status::SpaceNotFound();
+        return getSpaceIdNotFoundStatus(spaceId);
     } else {
         auto iter = spaceIt->second->edgeIndexes_.find(indexID);
         if (iter == spaceIt->second->edgeIndexes_.end()) {
             VLOG(3) << "Space " << spaceId << ", Edge Index " << indexID << " not found!";
-            return Status::IndexNotFound();
+            if (options_.role_ == cpp2::HostRole::STORAGE) {
+                return Status::Error(ErrorCode::E_STORAGE_INDEX_EDGE_INDEX_ID_NOT_FOUND, indexID);
+            } else {
+                return Status::Error(ErrorCode::E_GRAPH_INDEX_EDGE_INDEX_ID_NOT_FOUND, indexID);
+            }
         } else {
             return iter->second;
         }
@@ -2247,7 +2275,11 @@ StatusOr<SchemaVer> MetaClient::getLatestTagVersionFromCache(const GraphSpaceID&
     folly::RWSpinLock::ReadHolder holder(localCacheLock_);
     auto it = spaceNewestTagVerMap_.find(std::make_pair(space, tagId));
     if (it == spaceNewestTagVerMap_.end()) {
-        return Status::TagNotFound();
+        if (options_.role_ == cpp2::HostRole::STORAGE) {
+            return Status::Error(ErrorCode::E_STORAGE_SCHEMA_TAG_ID_NOT_FOUND, tagId);
+        } else {
+            return Status::Error(ErrorCode::E_GRAPH_SCHEMA_TAG_ID_NOT_FOUND, tagId);
+        }
     }
     return it->second;
 }
@@ -2260,7 +2292,11 @@ StatusOr<SchemaVer> MetaClient::getLatestEdgeVersionFromCache(const GraphSpaceID
     folly::RWSpinLock::ReadHolder holder(localCacheLock_);
     auto it = spaceNewestEdgeVerMap_.find(std::make_pair(space, edgeType));
     if (it == spaceNewestEdgeVerMap_.end()) {
-        return Status::EdgeNotFound();
+        if (options_.role_ == cpp2::HostRole::STORAGE) {
+            return Status::Error(ErrorCode::E_STORAGE_SCHEMA_EDGE_ID_NOT_FOUND, edgeType);
+        } else {
+            return Status::Error(ErrorCode::E_GRAPH_SCHEMA_EDGE_ID_NOT_FOUND, edgeType);
+        }
     }
     return it->second;
 }
@@ -2317,7 +2353,7 @@ folly::Future<StatusOr<bool>> MetaClient::heartbeat() {
                     }
                     metadLastUpdateTime_ = resp.get_last_update_time_in_ms();
                     VLOG(1) << "Metad last update time: " << metadLastUpdateTime_;
-                    return true;  // resp.code == nebula::cpp2::ErrorCode::SUCCEEDED
+                    return true;  // resp.code == nebula::ErrorCode::SUCCEEDED
                 },
                 std::move(promise));
     return future;
@@ -2337,7 +2373,7 @@ MetaClient::createUser(std::string account, std::string password, bool ifNotExis
                     return client->future_createUser(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -2356,7 +2392,7 @@ MetaClient::dropUser(std::string account, bool ifExists) {
                     return client->future_dropUser(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -2375,7 +2411,7 @@ MetaClient::alterUser(std::string account, std::string password) {
                     return client->future_alterUser(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -2393,7 +2429,7 @@ MetaClient::grantToUser(cpp2::RoleItem roleItem) {
                     return client->future_grantRole(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -2411,7 +2447,7 @@ MetaClient::revokeFromUser(cpp2::RoleItem roleItem) {
                     return client->future_revokeRole(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -2468,7 +2504,7 @@ MetaClient::changePassword(std::string account,
                     return client->future_changePassword(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -2548,7 +2584,7 @@ folly::Future<StatusOr<bool>> MetaClient::balanceLeader() {
                     return client->future_leaderBalance(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -2619,7 +2655,7 @@ MetaClient::regConfig(const std::vector<cpp2::ConfigItem>& items) {
                     return client->future_regConfig(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> decltype(auto) {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -2668,7 +2704,7 @@ MetaClient::setConfig(const cpp2::ConfigModule& module,
                     return client->future_setConfig(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -2702,7 +2738,7 @@ folly::Future<StatusOr<bool>> MetaClient::createSnapshot() {
                     return client->future_createSnapshot(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -2719,7 +2755,7 @@ folly::Future<StatusOr<bool>> MetaClient::dropSnapshot(const std::string& name) 
                     return client->future_dropSnapshot(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -2755,7 +2791,7 @@ folly::Future<StatusOr<bool>> MetaClient::addListener(GraphSpaceID spaceId,
                     return client->future_addListener(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -2773,7 +2809,7 @@ folly::Future<StatusOr<bool>> MetaClient::removeListener(GraphSpaceID spaceId,
                     return client->future_removeListener(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -2819,7 +2855,7 @@ MetaClient::getListenersBySpaceHostFromCache(GraphSpaceID spaceId, const HostAdd
     auto iter = spaceIt->second->listeners_.find(host);
     if (iter == spaceIt->second->listeners_.end()) {
         VLOG(3) << "Space " << spaceId << ", Listener on host " << host.toString() << " not found!";
-        return Status::ListenerNotFound();
+        return Status::Error(ErrorCode::E_LISTENER_NOT_FOUND, spaceId);
     } else {
         return iter->second;
     }
@@ -2877,7 +2913,7 @@ StatusOr<HostAddr> MetaClient::getListenerHostsBySpacePartType(GraphSpaceID spac
             }
         }
     }
-    return Status::ListenerNotFound();
+    return Status::Error(ErrorCode::E_LISTENER_NOT_FOUND, spaceId);
 }
 
 StatusOr<std::vector<RemoteListenerInfo>>
@@ -2900,7 +2936,7 @@ MetaClient::getListenerHostTypeBySpacePartType(GraphSpaceID spaceId, PartitionID
         }
     }
     if (items.empty()) {
-        return Status::ListenerNotFound();
+        return Status::Error(ErrorCode::E_LISTENER_NOT_FOUND, spaceId);
     }
     return items;
 }
@@ -3038,7 +3074,7 @@ MetaClient::addZone(std::string zoneName, std::vector<HostAddr> nodes) {
                     return client->future_addZone(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -3056,7 +3092,7 @@ MetaClient::dropZone(std::string zoneName) {
                     return client->future_dropZone(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -3075,7 +3111,7 @@ MetaClient::addHostIntoZone(HostAddr node, std::string zoneName) {
                     return client->future_addHostIntoZone(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -3094,7 +3130,7 @@ MetaClient::dropHostFromZone(HostAddr node, std::string zoneName) {
                     return client->future_dropHostFromZone(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -3147,7 +3183,7 @@ MetaClient::addGroup(std::string groupName, std::vector<std::string> zoneNames) 
                     return client->future_addGroup(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -3165,7 +3201,7 @@ MetaClient::dropGroup(std::string groupName) {
                     return client->future_dropGroup(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -3184,7 +3220,7 @@ MetaClient::addZoneIntoGroup(std::string zoneName, std::string groupName) {
                     return client->future_addZoneIntoGroup(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -3203,7 +3239,7 @@ MetaClient::dropZoneFromGroup(std::string zoneName, std::string groupName) {
                     return client->future_dropZoneFromGroup(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise));
     return future;
@@ -3261,24 +3297,26 @@ MetaClient::getStatis(GraphSpaceID spaceId) {
     return future;
 }
 
-folly::Future<StatusOr<nebula::cpp2::ErrorCode>> MetaClient::reportTaskFinish(
+folly::Future<StatusOr<nebula::ErrorCode>> MetaClient::reportTaskFinish(
     int32_t jobId,
     int32_t taskId,
-    nebula::cpp2::ErrorCode taskErrCode,
+    nebula::ErrorCode taskErrCode,
     cpp2::StatisItem* statisticItem) {
     cpp2::ReportTaskReq req;
-    req.set_code(taskErrCode);
+    req.set_code(static_cast<int32_t>(taskErrCode));
     req.set_job_id(jobId);
     req.set_task_id(taskId);
     if (statisticItem) {
         req.set_statis(*statisticItem);
     }
-    folly::Promise<StatusOr<nebula::cpp2::ErrorCode>> pro;
+    folly::Promise<StatusOr<nebula::ErrorCode>> pro;
     auto fut = pro.getFuture();
     getResponse(
         std::move(req),
         [](auto client, auto request) { return client->future_reportTaskFinish(request); },
-        [](cpp2::ExecResp&& resp) -> nebula::cpp2::ErrorCode { return resp.get_code(); },
+        [](cpp2::ExecResp&& resp) -> nebula::ErrorCode {
+            return static_cast<nebula::ErrorCode>(resp.get_status().get_code());
+            },
         std::move(pro),
         true);
     return fut;
@@ -3296,7 +3334,7 @@ folly::Future<StatusOr<bool>> MetaClient::signInFTService(
                     return client->future_signInFTService(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise),
                 true);
@@ -3313,7 +3351,7 @@ folly::Future<StatusOr<bool>> MetaClient::signOutFTService() {
                     return client->future_signOutFTService(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise),
                 true);
@@ -3356,7 +3394,7 @@ MetaClient::createFTIndex(const std::string& name, const cpp2::FTIndex& index) {
                     return client->future_createFTIndex(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise),
                 true);
@@ -3375,7 +3413,7 @@ MetaClient::dropFTIndex(GraphSpaceID spaceId, const std::string& name) {
                     return client->future_dropFTIndex(request);
                 },
                 [] (cpp2::ExecResp&& resp) -> bool {
-                    return resp.get_code() == nebula::cpp2::ErrorCode::SUCCEEDED;
+                    return resp.get_status().get_code() == static_cast<int32_t>(nebula::ErrorCode::SUCCEEDED);
                 },
                 std::move(promise),
                 true);
@@ -3436,7 +3474,7 @@ MetaClient::getFTIndexBySpaceSchemaFromCache(GraphSpaceID spaceId, int32_t schem
             return std::make_pair(it->first, it->second);
         }
     }
-    return Status::IndexNotFound();
+    return Status::Error(ErrorCode::E_SCHEMA_ID_NOT_FOUND, schemaId);
 }
 
 StatusOr<cpp2::FTIndex>
@@ -3447,7 +3485,7 @@ MetaClient::getFTIndexByNameFromCache(GraphSpaceID spaceId, const std::string& n
     folly::RWSpinLock::ReadHolder holder(localCacheLock_);
     if (fulltextIndexMap_.find(name) != fulltextIndexMap_.end() &&
         fulltextIndexMap_[name].get_space_id() != spaceId) {
-        return Status::IndexNotFound();
+        return Status::Error(ErrorCode::E_FULLTEXT_INDEX_NAME_NOT_FOUND, name);
     }
     return fulltextIndexMap_[name];
 }

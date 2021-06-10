@@ -262,7 +262,7 @@ FunctionManager::getReturnType(const std::string& funcName,
         }
     }
 
-    return Status::Error(E_FUNCTION_INVALID_ARG_TYPE, funcName);
+    return Status::Error(ErrorCode::E_FUNCTION_INVALID_ARG_TYPE, funcName);
 }
 
 FunctionManager::FunctionManager() {

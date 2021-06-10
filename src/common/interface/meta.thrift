@@ -294,7 +294,7 @@ struct ResponseCommon {
     1: required i32    code,
     2: required binary error_msg,
     // Only valid when code is E_LEADER_CHANAGED.
-    3: optional common.HostAddr     leader,
+    3: common.HostAddr leader,
 }
 
 struct AdminJobResp {
@@ -1072,7 +1072,7 @@ struct RemoveSessionReq {
 }
 
 struct ReportTaskReq {
-    1: common.ErrorCode     code,
+    1: i32                  code,
     2: i32                  job_id,
     3: i32                  task_id,
     4: optional StatisItem  statis

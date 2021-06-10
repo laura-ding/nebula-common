@@ -23,7 +23,7 @@ include "meta.thrift"
  */
 
 struct PartitionResult {
-    1: required common.ErrorCode    code,
+    1: required i32    code,
     2: required binary error_msg,
     3: required common.PartitionID  part_id,
     // Only valid when code is E_LEADER_CHANAGED.

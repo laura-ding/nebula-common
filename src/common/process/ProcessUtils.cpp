@@ -19,13 +19,16 @@ Status ProcessUtils::isPidAvailable(pid_t pid) {
 
     constexpr auto SIG_OK = 0;
     if (::kill(pid, SIG_OK) == 0) {
-        return Status::Error("Process `%d' already existed", pid);
+        return Status::Error(ErrorCode::E_PROCESS_NOT_AVAILABLE_PID,
+                             folly::stringPrintf("Process `%d' already existed", pid));
     }
     if (errno == EPERM) {
-        return Status::Error("Process `%d' already existed but denied to access", pid);
+        return Status::Error(ErrorCode::E_PROCESS_NOT_AVAILABLE_PID,
+                folly::stringPrintf("Process `%d' already existed but denied to access", pid));
     }
     if (errno != ESRCH) {
-        return Status::Error("Uknown error: `%s'", ::strerror(errno));
+        return Status::Error(ErrorCode::E_PROCESS_NOT_AVAILABLE_PID,
+                             folly::stringPrintf("Unknown error: `%s'", ::strerror(errno)));
     }
     return Status::OK();
 }
@@ -37,7 +40,8 @@ Status ProcessUtils::isPidAvailable(const std::string &pidFile) {
         if (errno == ENOENT) {
             return Status::OK();
         } else {
-            return Status::Error("%s: %s", pidFile.c_str(), ::strerror(errno));
+            return Status::Error(ErrorCode::E_PROCESS_NOT_AVAILABLE_PID,
+                    folly::stringPrintf("pidFile: %s, error: %s", pidFile.c_str(), ::strerror(errno)));
         }
     }
     // Pidfile is readable
@@ -54,17 +58,19 @@ Status ProcessUtils::isPidAvailable(const std::string &pidFile) {
 
 Status ProcessUtils::makePidFile(const std::string &pidFile, pid_t pid) {
     if (pidFile.empty()) {
-        return Status::Error("Path to the pid file is empty");
+        return Status::Error(ErrorCode::E_PROCESS_CREATE_PID_FAILED, "Path to the pid file is empty");
     }
     // Create hosting directory if not exists
     auto dirname = fs::FileUtils::dirname(pidFile.c_str());
     if (!fs::FileUtils::makeDir(dirname)) {
-        return Status::Error("Failed to create: `%s'", dirname.c_str());
+        return Status::Error(ErrorCode::E_PROCESS_CREATE_PID_FAILED,
+                folly::stringPrintf("Failed to create: `%s'", dirname.c_str()));
     }
     // Open or create pid file
     auto *file = ::fopen(pidFile.c_str(), "w");
     if (file == nullptr) {
-        return Status::Error("Open or create `%s': %s", pidFile.c_str(), ::strerror(errno));
+        return Status::Error(ErrorCode::E_PROCESS_CREATE_PID_FAILED,
+                folly::stringPrintf("Open or create `%s': %s", pidFile.c_str(), ::strerror(errno)));
     }
 
     if (pid == 0) {
@@ -82,7 +88,7 @@ Status ProcessUtils::makePidFile(const std::string &pidFile, pid_t pid) {
 Status ProcessUtils::daemonize(const std::string &pidFile) {
     auto pid = ::fork();
     if (pid == -1) {
-        return Status::Error("fork: %s", ::strerror(errno));
+        return Status::Error(ErrorCode::E_SYSTEM_CALL_FAILED, "fork", ::strerror(errno));
     }
     if (pid > 0) {  // parent process
         ::exit(0);
@@ -144,7 +150,7 @@ pid_t ProcessUtils::maxPid() {
 StatusOr<std::string> ProcessUtils::runCommand(const char* command) {
     FILE* f = popen(command, "re");
     if (f == nullptr) {
-        return Status::Error("Failed to execute the command \"%s\"", command);
+        return Status::Error(ErrorCode::E_PROCESS_RUN_COMMAND_FAILED, command);
     }
 
     Cord out;
@@ -160,7 +166,7 @@ StatusOr<std::string> ProcessUtils::runCommand(const char* command) {
     if (ferror(f)) {
         // Something is wrong
         fclose(f);
-        return Status::Error("Failed to read the output of the command");
+        return Status::Error(ErrorCode::E_PROCESS_READ_COMMAND_RESULT_FAILED, command);
     }
 
     pclose(f);

@@ -69,7 +69,7 @@ ErrorMsgUTF8Map = {
         {
             {
                 Language::L_EN,
-                "Fail to call filesystem function: %s."
+                "Fail to call filesystem function: `%s'."
             }
         }
     },
@@ -97,6 +97,96 @@ ErrorMsgUTF8Map = {
             {
                 Language::L_EN,
                 "File `%s' is empty content."
+            }
+        }
+    },
+    {
+        ErrorCode::E_NET_GET_IPV4_FAILED,
+        {
+            {
+                Language::L_EN,
+                "No IPv4 address found for `%s'."
+            }
+        }
+    },
+    {
+        ErrorCode::E_NET_HOST_NOT_FOUND,
+        {
+            {
+                Language::L_EN,
+                "Host `%s' not found."
+            }
+        }
+    },
+    {
+        ErrorCode::E_NET_BAD_IP,
+        {
+            {
+                Language::L_EN,
+                "The ip format `'%s is bad."
+            }
+        }
+    },
+    {
+        ErrorCode::E_PROCESS_RUN_COMMAND_FAILED,
+        {
+            {
+                Language::L_EN,
+                "Failed to execute the command `%s'."
+            }
+        }
+    },
+    {
+        ErrorCode::E_PROCESS_READ_COMMAND_RESULT_FAILED,
+        {
+            {
+                Language::L_EN,
+                "Failed to read the output of the command `%s'."
+            }
+        }
+    },
+    {
+        ErrorCode::E_PROCESS_NOT_AVAILABLE_PID,
+        {
+            {
+                Language::L_EN,
+                "The pid is not available: %s."
+            }
+        }
+    },
+    {
+        ErrorCode::E_PROCESS_CREATE_PID_FAILED,
+        {
+            {
+                Language::L_EN,
+                "Failed to create pid file: %s."
+            }
+        }
+    },
+    {
+        ErrorCode::E_STATS_INVALID_NAME,
+        {
+            {
+                Language::L_EN,
+                "Invalid stats name: %s."
+            }
+        }
+    },
+    {
+        ErrorCode::E_NET_BAD_PORT,
+        {
+            {
+                    Language::L_EN,
+                    "The port format `'%s is bad."
+            }
+        }
+    },
+    {
+        ErrorCode::E_SYSTEM_CALL_FAILED,
+        {
+            {
+                Language::L_EN,
+                "Do system call `%s' failed: %s."
             }
         }
     },
@@ -168,7 +258,7 @@ ErrorMsgUTF8Map = {
         {
             {
                 Language::L_EN,
-                "Charset `%s' not supported."
+                "Charset `%s' is not supported."
             }
         }
     },
@@ -177,7 +267,7 @@ ErrorMsgUTF8Map = {
         {
             {
                 Language::L_EN,
-                "Collation `%s' not supported."
+                "Collation `%s' is not supported."
             }
         }
     },
@@ -186,7 +276,7 @@ ErrorMsgUTF8Map = {
         {
             {
                 Language::L_EN,
-                "Charset `%s' and Collation `%s' not match."
+                "Charset `%s' and Collation `%s' is not match."
             }
         }
     },
@@ -195,7 +285,7 @@ ErrorMsgUTF8Map = {
         {
             {
                 Language::L_EN,
-                "Function `%s' not supported."
+                "Function `%s' is not supported."
             }
         }
     },
@@ -204,7 +294,7 @@ ErrorMsgUTF8Map = {
         {
             {
                 Language::L_EN,
-                "Dynamic function `%s' not supported."
+                "Dynamic function `%s' is not supported."
             }
         }
     },
@@ -227,11 +317,65 @@ ErrorMsgUTF8Map = {
         }
     },
     {
+        ErrorCode::E_AGG_FUNCTION_NOT_SUPPORTED,
+        {
+            {
+                Language::L_EN,
+                "Aggregation function `%s' is not supported."
+            }
+        }
+    },
+    {
+        ErrorCode::E_AGG_FUNCTION_DYNAMIC_NOT_SUPPORTED,
+        {
+            {
+                Language::L_EN,
+                "Aggregation Dynamic function `%s' is not supported."
+            }
+        }
+    },
+    {
         ErrorCode::E_INVALID_VID_TYPE,
         {
             {
                 Language::L_EN,
                 "Only support integer/string type vid, but now type is `%s'."
+            }
+        }
+    },
+    {
+        ErrorCode::E_TTL_NOT_SET,
+        {
+            {
+                Language::L_EN,
+                "The TTL column is not set."
+            }
+        }
+    },
+    {
+        ErrorCode::E_TTL_INVALID_PROPERTY,
+        {
+            {
+                Language::L_EN,
+                "The TTL column name is empty or the TTL time is invalid."
+            }
+        }
+    },
+    {
+        ErrorCode::E_SCHEMA_NAME_NOT_FOUND,
+        {
+            {
+                Language::L_EN,
+                "The schema name `%s' is not found."
+            }
+        }
+    },
+    {
+        ErrorCode::E_FULLTEXT_CLIENT_IS_EMPTY,
+        {
+            {
+                Language::L_EN,
+                "The fulltext client list is empty."
             }
         }
     },
@@ -276,21 +420,41 @@ ErrorMsgUTF8Map = {
         }
     },
     {
-        ErrorCode::E_GRAPH_SCHEMA_TAG_INDEX_NOT_FOUND,
+        ErrorCode::E_GRAPH_INDEX_TAG_INDEX_ID_NOT_FOUND,
         {
             {
                 Language::L_EN,
-                "The tag index `%s' does not exist or it is not synchronized to the graph yet. "
+                "The tag index id `%d' does not exist or it is not synchronized to the graph yet. "
                 "Double check the tag index name and try again later."
             }
         }
     },
     {
-        ErrorCode::E_GRAPH_SCHEMA_EDGE_INDEX_NOT_FOUND,
+        ErrorCode::E_GRAPH_INDEX_EDGE_INDEX_ID_NOT_FOUND,
         {
             {
                 Language::L_EN,
-                "The edge index `%s' does not exist or it is not synchronized to the graph yet."
+                "The edge index id `%d' does not exist or it is not synchronized to the graph yet."
+                "Double check the edge index name and try again later."
+            }
+        }
+    },
+    {
+        ErrorCode::E_GRAPH_INDEX_TAG_INDEX_NAME_NOT_FOUND,
+        {
+            {
+                Language::L_EN,
+                "The tag index name `%s' does not exist or it is not synchronized to the graph yet. "
+                "Double check the tag index name and try again later."
+            }
+        }
+    },
+    {
+        ErrorCode::E_GRAPH_INDEX_EDGE_INDEX_NAME_NOT_FOUND,
+        {
+            {
+                Language::L_EN,
+                "The edge index name `%s' does not exist or it is not synchronized to the graph yet."
                 "Double check the edge index name and try again later."
             }
         }
@@ -381,20 +545,40 @@ ErrorMsgUTF8Map = {
         }
     },
     {
-        ErrorCode::E_STORAGE_SCHEMA_TAG_INDEX_NOT_FOUND,
+        ErrorCode::E_STORAGE_INDEX_TAG_INDEX_ID_NOT_FOUND,
         {
             {
                 Language::L_EN,
-                "The tag index `%s' does not exist or it is not synchronized to the storage yet. "
+                "The tag index id `%d' does not exist or it is not synchronized to the storage yet. "
                 "Double check the tag index name and try again later." }
         }
     },
     {
-        ErrorCode::E_STORAGE_SCHEMA_EDGE_INDEX_NOT_FOUND,
+        ErrorCode::E_STORAGE_INDEX_EDGE_INDEX_ID_NOT_FOUND,
         {
             {
                 Language::L_EN,
-                "The edge index `%s' does not exist or it is not synchronized to the storage yet. "
+                "The edge index id `%d' does not exist or it is not synchronized to the storage yet. "
+                "Double check the edge index name and try again later."
+            }
+        }
+    },
+    {
+        ErrorCode::E_STORAGE_INDEX_TAG_INDEX_NAME_NOT_FOUND,
+        {
+            {
+                Language::L_EN,
+                "The tag index name `%d' does not exist or it is not synchronized to the storage yet. "
+                "Double check the tag index name and try again later."
+            }
+        }
+    },
+    {
+        ErrorCode::E_STORAGE_INDEX_EDGE_INDEX_NAME_NOT_FOUND,
+        {
+            {
+                Language::L_EN,
+                "The edge index name `%d' does not exist or it is not synchronized to the storage yet. "
                 "Double check the edge index name and try again later."
             }
         }
@@ -425,6 +609,15 @@ ErrorMsgUTF8Map = {
             {
                 Language::L_EN,
                 "Internal error: %s."
+            }
+        }
+    },
+    {
+        ErrorCode::E_UNSUPPORTED,
+        {
+            {
+                Language::L_EN,
+                "Unsupported: %s."
             }
         }
     },

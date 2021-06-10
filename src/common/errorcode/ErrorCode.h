@@ -8,6 +8,15 @@
 #define COMMON_ERRORCODE_ERRORCODE_H
 
 /**
+ * net error format:
+ * file error format:
+ * config error format:
+ * process error format:
+ * time value error format:
+ * function expression error format:
+ * agg function expression error format:
+ * fulltext function error format:
+ *
  * name format: E_<ServiceName>_<ModuleName>_<ErrorName>
  * id format: ServiceId(1~3) * 10000000 + ModuleId(001~999) * 10000 + ErrorId(0001~9999)
  * The serviceId of graph is 1
@@ -40,6 +49,7 @@ enum class ErrorCode : int32_t {
     SUCCEEDED = 0,
 
     E_RPC_FAILED = 1,
+    E_LEADER_CHANGED = 2,
     // The system error code, 1~200
     E_SIGNAL_ERROR = 1,
     E_INIT_MEM_FAILED = 2,
@@ -47,10 +57,26 @@ enum class ErrorCode : int32_t {
     E_FILE_NOT_FOUND = 4,
     E_FILE_NOT_PERMISSION = 5,
     E_FILE_CONTENT_IS_EMPTY = 6,
+    E_SYSTEM_CALL_FAILED = 12,
+
     E_CONFIG_ITEM_NOT_FOUND = 7,
-    E_CONFIG_ITEM_IS_NOT_ARRAY = 8,
+    E_CONFIG_ITEM_IS_NO_ARRAY = 8,
     E_CONFIG_INVALID_ITEM_TYPE = 9,
     E_CONFIG_WRONG_JSON_FORMAT = 10,
+
+    E_NET_GET_IPV4_FAILED = 11,
+    E_NET_HOST_NOT_FOUND = 13,
+    E_NET_BAD_IP = 14,
+    E_NET_BAD_PORT = 15,
+
+    E_PROCESS_RUN_COMMAND_FAILED = 16,
+    E_PROCESS_READ_COMMAND_RESULT_FAILED = 17,
+    E_PROCESS_NOT_AVAILABLE_PID = 18,
+    E_PROCESS_CREATE_PID_FAILED = 19,
+
+    E_STATS_INVALID_NAME = 20,
+
+    E_METAD_NOT_READY = 21,
 
     // Time format error, 201~400
     E_INVALID_TIME_FORMAT = 201,
@@ -79,6 +105,17 @@ enum class ErrorCode : int32_t {
 
     E_INVALID_VID_TYPE = 32,
 
+    E_TTL_NOT_SET = 33,
+    E_TTL_INVALID_PROPERTY = 34,
+
+    E_SCHEMA_ID_NOT_FOUND = 35,
+    E_SCHEMA_NAME_NOT_FOUND = 36,
+
+    E_FULLTEXT_INDEX_ID_NOT_FOUND = 37,
+    E_FULLTEXT_INDEX_NAME_NOT_FOUND = 38,
+    E_FULLTEXT_CLIENT_IS_EMPTY = 39,
+    E_LISTENER_NOT_FOUND = 40,
+
 
     // The ErrorCode for graph
     // prefix: 1001
@@ -89,8 +126,10 @@ enum class ErrorCode : int32_t {
     E_GRAPH_SCHEMA_EDGE_NAME_NOT_FOUND = 10070004,
 
     // prefix: 1004
-    E_GRAPH_SCHEMA_TAG_INDEX_NOT_FOUND = 10040001,
-    E_GRAPH_SCHEMA_EDGE_INDEX_NOT_FOUND = 10040002,
+    E_GRAPH_INDEX_TAG_INDEX_ID_NOT_FOUND = 10040001,
+    E_GRAPH_INDEX_EDGE_INDEX_ID_NOT_FOUND = 10040002,
+    E_GRAPH_INDEX_TAG_INDEX_NAME_NOT_FOUND = 10040003,
+    E_GRAPH_INDEX_EDGE_INDEX_NAME_NOT_FOUND = 10040004,
 
     // prefix: 1002
     E_GRAPH_SPACE_ID_NOT_FOUND = 10020001,
@@ -119,8 +158,10 @@ enum class ErrorCode : int32_t {
     E_STORAGE_SCHEMA_EDGE_NAME_NOT_FOUND = 30010004,
 
     // prefix: 3004
-    E_STORAGE_SCHEMA_TAG_INDEX_NOT_FOUND = 30070001,
-    E_STORAGE_SCHEMA_EDGE_INDEX_NOT_FOUND = 30070002,
+    E_STORAGE_INDEX_TAG_INDEX_ID_NOT_FOUND = 30070001,
+    E_STORAGE_INDEX_EDGE_INDEX_ID_NOT_FOUND = 30070002,
+    E_STORAGE_INDEX_TAG_INDEX_NAME_NOT_FOUND = 30070003,
+    E_STORAGE_INDEX_EDGE_INDEX_NAME_NOT_FOUND = 30070004,
 
     // prefix: 3002
     E_STORAGE_SPACE_ID_NOT_FOUND = 30020001,
@@ -131,6 +172,7 @@ enum class ErrorCode : int32_t {
     E_STORAGE_ES_RUN_COMMAND_FAILED = 30190001,
 
     E_INTERNAL_ERROR = -1,
+    E_UNSUPPORTED = -2,
 };
 
 }   // namespace nebula

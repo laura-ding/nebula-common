@@ -26,7 +26,7 @@ Status Configuration::parseFromFile(const std::string &filename) {
     do {
         if (fd == -1) {
             if (errno == ENOENT) {
-                status = Status::NoSuchFile(ErrorCode::E_FILE_NOT_FOUND, filename.c_str());
+                status = Status::Error(ErrorCode::E_FILE_NOT_FOUND, filename.c_str());
                 break;
             }
             if (errno == EPERM) {
@@ -72,7 +72,7 @@ Status Configuration::parseFromString(const std::string &content) {
         content_ = std::make_unique<folly::dynamic>(std::move(json));
     } catch (std::exception &e) {
         LOG(ERROR) << e.what();
-        return Status::Error(E_CONFIG_WRONG_JSON_FORMAT, e.what());
+        return Status::Error(ErrorCode::E_CONFIG_WRONG_JSON_FORMAT, e.what());
     }
     return Status::OK();
 }
@@ -235,7 +235,7 @@ Status Configuration::fetchAsBoolArray(
         return Status::Error(ErrorCode::E_CONFIG_ITEM_NOT_FOUND, key);
     }
     if (!iter->second.isArray()) {
-        return Status::Error(ErrorCode::E_CONFIG_ITEM_IS_NOT_ARRAY, key);
+        return Status::Error(ErrorCode::E_CONFIG_ITEM_IS_NO_ARRAY, key);
     }
 
     for (auto& entry : iter->second) {

@@ -332,7 +332,7 @@ Status AggFunctionManager::load(const std::string &soname, const std::vector<std
 }
 
 Status AggFunctionManager::loadInternal(const std::string &, const std::vector<std::string> &) {
-    return Status::Error(E_AGG_FUNCTION_DYNAMIC_NOT_SUPPORTED, "loading");
+    return Status::Error(ErrorCode::E_AGG_FUNCTION_DYNAMIC_NOT_SUPPORTED, "loading");
 }
 
 Status AggFunctionManager::unload(const std::string &soname,
@@ -341,7 +341,7 @@ Status AggFunctionManager::unload(const std::string &soname,
 }
 
 Status AggFunctionManager::unloadInternal(const std::string &, const std::vector<std::string> &) {
-    return Status::Error(E_AGG_FUNCTION_DYNAMIC_NOT_SUPPORTED, "unloading");
+    return Status::Error(ErrorCode::E_AGG_FUNCTION_DYNAMIC_NOT_SUPPORTED, "unloading");
 }
 
 }   // namespace nebula
