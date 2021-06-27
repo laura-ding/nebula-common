@@ -1111,8 +1111,8 @@ struct GetSessionResp {
     3: Session              session,
 }
 
-struct RemoveSessionReq {
-    1: common.SessionID      session_id,
+struct RemoveSessionsReq {
+    1: list<common.SessionID>  session_id_list,
 }
 
 struct ReportTaskReq {
@@ -1241,7 +1241,7 @@ service MetaService {
     ExecResp updateSessions(1: UpdateSessionsReq req);
     ListSessionsResp listSessions(1: ListSessionsReq req);
     GetSessionResp getSession(1: GetSessionReq req);
-    ExecResp removeSession(1: RemoveSessionReq req);
+    ExecResp removeSessions(1: RemoveSessionsReq req);
 
     ExecResp reportTaskFinish(1: ReportTaskReq req);
 
