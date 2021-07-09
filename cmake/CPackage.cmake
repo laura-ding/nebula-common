@@ -51,6 +51,8 @@ macro(package to_one name home_page scripts_dir)
         )
         string(REPLACE "." "" HOST_SYSTEM_VER ${HOST_SYSTEM_VER})
         string(CONCAT HOST_SYSTEM_VER "ubuntu" ${HOST_SYSTEM_VER})
+        # the ubuntu need to modify the architecture name
+        set(CMAKE_HOST_SYSTEM_PROCESSOR "amd64")
     elseif (EXISTS "/etc/issue")
         set(CPACK_GENERATOR "DEB")
         file (STRINGS "/etc/issue" SYSTEM_NAME)
