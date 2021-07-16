@@ -9,7 +9,8 @@ execute_process(
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-if ("${default_linker_type}" STREQUAL "ld")
+# under NeoKylin V5 of mips64el, the GCC is supported by the NeoKylin, so use the system ld
+if ("${default_linker_type}" STREQUAL "ld" AND NOT ${CMAKE_HOST_SYSTEM_PROCESSOR} MATCHES "mips64")
     set(default_linker_type "bfd")
 endif()
 
